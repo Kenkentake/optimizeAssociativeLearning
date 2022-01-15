@@ -55,7 +55,7 @@ dkms.conf
 /input/swc/*
 
 # synlist
-/input/swc/alsynlist/*
+/input/synlist/alsynlist/*
 
 # result
 /one_result/*

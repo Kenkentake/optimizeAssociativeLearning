@@ -1,0 +1,726 @@
+///*************************
+// ParaCellSwc.hoc
+// 2011/12/01
+// Yusuke Mori
+//*************************
+
+//-------------------------
+// *** func&proc ***
+// readlist()
+// p_mkcells()
+// readRNlist()
+// p_mkRNcells()
+// p_mkstim()
+// par_chemi_create()
+// par_gap_create()
+
+{load_file("nrngui.hoc")}
+{load_file("./CellSwc2.hoc")}
+
+//--- parallel start ---
+objref pc
+pc = new ParallelContext()
+
+objref cells
+objref rncells
+objref cellnames
+objref rncellnames
+objref lnnames
+objref pnnames
+objref spikegens
+objref swclist
+objref rnswclist
+objref nil
+//--- area ---
+objref cellbodylist
+objref axonlist
+objref dendlist
+
+//--- number of cells and synapse gid (reset later) ---
+NCELLS = 0
+NRNCELLS = 0
+
+proc readlist(){ localobj strFunc strdef str, strTemp
+    swclist = new File()
+    swclist.ropen($s1)        
+    //--- read comments ---
+    strFunc = new StringFunctions()
+    while(!swclist.eof()){
+	swclist.gets(str)
+	strFunc.head(str, "[^#]", strTemp)
+	if(strcmp("#", strTemp) != 0) {
+	    break
+	}
+    }
+    //--- get Number of CELLS ---
+    NCELLS = swclist.scanvar()
+
+    //--- reset syn_gid ---
+    //syn_gid = NCELLS + 10
+}
+
+//------------------------------
+// make cells and set position
+//
+proc p_mkcells() { local i, j, cellnum localobj cell, namestring, nc, datafile strdef cellswc,  name, tmpstr, posfilename
+    // argument
+    // $s1:list name
+    // $2 :parallel(0) or serial(1) 
+    // 
+
+    s_gen = 0
+
+    cells = new List()    
+    cellnames = new List()
+    spikegens = new Vector()
+    datafile = new File()
+    //--- read list ---
+    readlist($s1)     
+
+    for (i = 0; i < NCELLS; i += 1) {	
+	if(i % pc.nhost == pc.id || $2 == 1){
+	    if(swclist.scanstr(name) != -1){
+		//--- cell name ---
+		namestring = new String(name)
+		cellnames.append(namestring)
+
+		//--- cell data file ---
+		swclist.scanstr(cellswc)
+		cell = new CellSwc(cellswc)
+
+		printf("namestring is %s, cellswc is %s\n", name, cellswc)
+		//printf("sectionnum is %d\n", cell.SectionNum)
+
+		//--- append to the list ---
+		cells.append(cell)
+		cellnum = cells.count() - 1
+		print "Cell Number : " , cellnum, " of the pc_id : ", pc.id, " i : ", i
+		
+		//--- area set ---
+
+		/*
+		Second Item of SWC
+		• 0 = undefined
+		• 1 = soma
+		• 2 = axon
+		• 3 = dendrite
+		• 4 = apical dendrite
+		• 5 = fork point
+		• 6 = end point
+		• 7 = custom
+		*/
+
+		// cell.secInput = areaList(de_t, de_s, cellnum)
+		// cell.secOutput = areaList(ax_t, ax_s, cellnum)
+		
+		//--- global id & spike detector ---
+		pc.set_gid2node(i, pc.id) // associate gid i with this host
+		cell.Dend[s_gen] nc = new NetCon(&v(.5), nil)		
+		pc.cell(i, nc)            // associate gid i with spike detector
+		
+		datafile.close()
+
+		//--- end the line ---
+		swclist.gets(tmpstr)
+	    }
+	} else {
+	    //--- cells in other processes ---
+	    swclist.gets(tmpstr)
+	    spikegens.append(-1)
+	}
+    }
+    swclist.close()
+}
+
+//------------------------------
+// make cells and set position
+//
+proc p_mkALcells() { local i, j, cellnum localobj cell, namestring, nc, datafile strdef cellswc,  name, tmpstr, posfilename
+    // argument
+    // $s1:list name
+    // $2 :parallel(0) or serial(1) 
+    // 
+
+    s_gen = 0
+
+    cells = new List()    
+    cellnames = new List()
+    spikegens = new Vector()
+    datafile = new File()
+    //--- read list ---
+    readlist($s1)     
+
+    for (i = 0; i < NCELLS; i += 1) {	
+	if(i % pc.nhost == pc.id || $2 == 1){
+	    if(swclist.scanstr(name) != -1){
+		//--- cell name ---
+		namestring = new String(name)
+		cellnames.append(namestring)
+
+		//--- cell data file ---
+		swclist.scanstr(cellswc)
+		cell = new CellSwc(cellswc)
+
+		printf("namestring is %s, cellswc is %s\n", name, cellswc)
+		//printf("sectionnum is %d\n", cell.SectionNum)
+
+		//--- append to the list ---
+		cells.append(cell)
+		cellnum = cells.count() - 1
+		print "Cell Number : " , cellnum, " of the pc_id : ", pc.id, " i : ", i
+		
+		//--- area set ---
+
+		/*
+		Second Item of SWC
+		• 0 = undefined
+		• 1 = soma
+		• 2 = axon
+		• 3 = dendrite
+		• 4 = apical dendrite
+		• 5 = fork point
+		• 6 = end point
+		• 7 = custom
+		*/
+
+		// cell.secInput = areaList(de_t, de_s, cellnum)
+		// cell.secOutput = areaList(ax_t, ax_s, cellnum)
+		
+		//--- global id & spike detector ---
+		pc.set_gid2node(i, pc.id) // associate gid i with this host
+		// set phygiological paramter of each type of AL neuron 
+		if (i < 163 + 183) { // pn
+		    cell.insertPN() // H-Hのどこを見るか
+		} else if (i < 421) { // ln
+		    cell.insertLN()		
+		} else if (i < 874) { // kc
+		    if (i == 649) {
+		       cell.insertREST()
+		    } else {
+		       cell.insertKC()
+		    }
+		} else { // mbon, mbln, feedback	
+		    cell.insertHH()
+		}
+		cell.Dend[s_gen] nc = new NetCon(&v(.5), nil)		
+		pc.cell(i, nc)            // associate gid i with spike detector
+		
+		datafile.close()
+
+		//--- end the line ---
+		swclist.gets(tmpstr)
+	    }
+	} else {
+	    //--- cells in other processes ---
+	    swclist.gets(tmpstr)
+	    spikegens.append(-1)
+	}
+    }
+    swclist.close()
+}
+
+proc readRNlist(){ localobj strFunc strdef str, strTemp
+    rnswclist = new File()
+    rnswclist.ropen($s1)        
+    //--- read comments ---
+    strFunc = new StringFunctions()
+    while(!rnswclist.eof()){
+	rnswclist.gets(str)
+	strFunc.head(str, "[^#]", strTemp)
+	if(strcmp("#", strTemp) != 0) {
+	    break
+	}
+    }
+    //--- get Number of CELLS ---
+    NRNCELLS = rnswclist.scanvar()
+}
+
+//------------------------------
+// make RNs and set position
+//
+proc p_mkRNcells() { local i, j, cellnum localobj cell, namestring, nc strdef cellswc,  name, tmpstr, posfilename
+    // argument
+    // $s1:list name
+    // $2 :parallel(0) or serial(1) 
+    // 
+    
+    s_gen = 0
+
+    rncells = new List()
+    rncellnames = new List()    
+    //--- read list ---
+    readRNlist($s1)     
+
+    for (i = 0; i < NRNCELLS; i += 1) {	
+	if(i % pc.nhost == pc.id || $2 == 1){
+	        rnswclist.scanstr(name)
+		namestring = new String(name)
+		rncellnames.append(namestring)	
+		//--- cell data file ---
+		rnswclist.scanstr(cellswc)
+		print cellswc	
+		cell = new CellSwc(cellswc)
+
+		printf("namestring is %s, cellswc is %s\n", name, cellswc)
+		
+		//--- append to the list ---
+		rncells.append(cell)
+		cellnum = rncells.count() - 1
+		print "Cell Number : " , cellnum, " of the pc_id : ", pc.id, " i : ", i		
+		
+		//--- area set ---
+
+		/*
+		Second Item of SWC
+		• 0 = undefined
+		• 1 = soma
+		• 2 = axon
+		• 3 = dendrite
+		• 4 = apical dendrite
+		• 5 = fork point
+		• 6 = end point
+		• 7 = custom
+		*/
+
+		//--- global id & spike detector ---
+		pc.set_gid2node(i + 50000, pc.id) // associate gid i with this host
+		cell.insertRN()
+		cell.Dend[s_gen] nc = new NetCon(&v(.5), nil)				
+		pc.cell(i + 50000, nc)            // associate gid i with spike detector
+		
+		//--- end the line ---
+		rnswclist.gets(tmpstr)
+	} else {
+	    //--- cells in other processes ---
+	    rnswclist.gets(tmpstr)
+	}
+    }
+    rnswclist.close()
+}
+
+proc posInit(){ local j, pos_x, pos_y, pos_z, meanx, meany, meanz localobj cell, posfile, rot
+    cell = $o1
+    posfile = new File()
+    posfile.ropen($s2)
+    rot = new Vector()
+
+    //--- get pos ---
+    pos_x = posfile.scanvar()
+    pos_y = posfile.scanvar()
+    pos_z = posfile.scanvar()
+   
+    //--- get rotate ---
+    for(j = 0; j < 9; j += 1){
+	rot.append(posfile.scanvar())
+    }
+    
+    //--- calc gravity center ---
+    meanx = meany = meanz = 0.0
+    for j = 0, cell.SectionNum - 1 cell.Dend[j] {
+	meanx += x3d(0)
+	meany += y3d(0)
+	meanz += z3d(0)
+    }
+    meanx /= cell.SectionNum
+    meany /= cell.SectionNum
+    meanz /= cell.SectionNum
+    
+    //--- set pos ---
+    cell.translation(-meanx, -meany, -meanz)
+    cellrotation(cell, rot)
+    cell.translation(pos_x , pos_y , pos_z)
+    
+    posfile.close()
+}
+
+//------------------------------
+// spike generator
+//
+
+/*
+load_file("insChannel.hoc")
+proc p_insChan(){ local s_gen localobj c, tmp_sr
+    if (pc.gid_exists($1)) {
+	c = pc.gid2obj($1)
+	s_gen = spikegens.x($1)
+	print s_gen
+	if(s_gen != -1){	
+	    c.Dend[s_gen] tmp_sr = new SectionRef()
+	    insertChannel(tmp_sr, $2, $3, $4, $5, $6)
+	}
+    }
+}
+*/
+
+//------------------------------
+// stimulation
+//
+objref stims
+
+proc p_mkstim_ic(){ localobj ic, c
+    // argument
+    // $1: target cell
+    // $2: target compartment
+    // $3: amp
+    // $4: dur
+    // $5: del
+    if (pc.gid_exists($1)) {
+	c = pc.gid2obj($1)
+	stims = new List()
+	c.Dend[$2] ic = new IClamp(1.0)
+	ic.amp = $3
+	ic.dur = $4
+	ic.del = $5
+	stims.append(ic)
+    }
+}
+
+objref netstim_list
+netstim_list = new List()
+
+proc p_mkstim_ns(){local target_cell, target_compartment localobj ns, cell
+    // argument
+    target_cell = $1
+    target_compartment = $2
+    if(pc.gid_exists(target_cell)){
+	cell = pc.gid2obj(target_cell)
+	cell.Dend[target_compartment] ns = new NetStim(0.5)
+	ns.start = 10
+	ns.interval = 10
+	ns.number = 100
+	ns.noise = 0
+	netstim_list.append(ns)
+    }
+}
+
+    
+//------------------------------
+// parallel chemical synapse
+//
+objref nclist
+objref synlist
+nclist = new List()
+synlist = new List()
+
+
+objref nclist_chemi
+nclist_chemi = new List()
+
+// count wrong synapse
+allSyn = 0
+wrongPreSyn = 0
+wrongPostSyn = 0
+objref wrongCellnames
+wrongCellnames = new List()
+
+proc par_chemi_create(){local synapse_gid, precompid, postcompid localobj nc, syn, c, csr, csrtmp1, csrtmp2, namestring
+    // argument
+    // $1 gid of pre
+    // $2 compartment_num of pre
+    // $3 gid of post
+    // $4 compartment_num of post
+    // $5 nc threshold
+    // $6 reversal potential
+    // $7 netcon weight
+    // $8 connection gid
+ 
+   //--- pre
+    if(pc.gid_exists($1)){
+	c = pc.gid2obj($1)
+	//print "pre", $2, c.SectionNum
+	precompid = $2
+	if (precompid > c.SectionNum-1) {
+	    print "out of range Dend[", $2, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
+            wrongPreSyn += 1
+	    print "check", " wrongPretSyn = ", wrongPreSyn, "allSyn = ", allSyn	    
+	    precompid = c.SectionNum - 2
+	}        
+	c.Dend[precompid] csr = new SectionRef()
+	synapse_gid = $8
+	par_presynapse(csr, synapse_gid, $5)
+    }
+    
+    pc.barrier()
+    
+    //--- post
+    if(pc.gid_exists($3)){
+	c = pc.gid2obj($3)
+	// print "post", $4, c.SectionNum
+	postcompid = $4	
+	if (postcompid > c.SectionNum-1) {
+	    print "out of range Dend[", $4, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
+            wrongPostSyn += 1
+	    print "check", " wrongPostSyn = ", wrongPostSyn, "allSyn = ", allSyn	    
+	    postcompid = c.SectionNum - 2
+	}        
+	c.Dend[postcompid] csr = new SectionRef()
+	synapse_gid = $8
+        par_postsynapse(csr, synapse_gid, $6, $7)
+    }
+
+    pc.barrier()
+    allSyn += 1
+}
+
+objref nclist_chemiSTDP
+nclist_chemiSTDP = new List()
+
+objref nclist_chemiSTDPRUP
+nclist_chemiSTDPRUP = new List()
+
+objref ncNamelist_chemiSTDP
+ncNamelist_chemiSTDP = new List()
+
+proc par_chemiSTDP_create(){local synapse_gid, precompid, postcompid localobj nc, syn, c, csr, csrtmp1, csrtmp2, namestring strdef ncname
+    // argument
+    // $1 gid of pre
+    // $2 compartment_num of pre
+    // $3 gid of post
+    // $4 compartment_num of post
+    // $5 nc threshold
+    // $6 reversal potential
+    // $7 netcon weight
+    // $8 connection gid
+ 
+   //--- pre
+    if(pc.gid_exists($1)){
+	c = pc.gid2obj($1)
+	//print "pre", $2, c.SectionNum
+	precompid = $2
+	if (precompid > c.SectionNum-1) {
+	    print "out of range Dend[", $2, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
+            wrongPreSyn += 1
+	    print "check", " wrongPretSyn = ", wrongPreSyn, "allSyn = ", allSyn	    
+	    precompid = c.SectionNum - 2
+	}        
+	c.Dend[precompid] csr = new SectionRef()
+	synapse_gid = $8
+	par_presynapse(csr, synapse_gid, $5)
+    }
+    
+    pc.barrier()
+    
+    //--- post
+    if(pc.gid_exists($3)){
+	c = pc.gid2obj($3)
+	// print "post", $4, c.SectionNum
+	postcompid = $4	
+	if (postcompid > c.SectionNum-1) {
+	    print "out of range Dend[", $4, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
+            wrongPostSyn += 1
+	    print "check", " wrongPostSyn = ", wrongPostSyn, "allSyn = ", allSyn	    
+	    postcompid = c.SectionNum - 2
+	}        
+	c.Dend[postcompid] csr = new SectionRef()
+	synapse_gid = $8
+	if (LEARNING) {
+	   precellid = $1
+	   postcellid = $3
+	   if (postcellid < 163) { // rn -> upn
+	       par_postsynapseSTDPRUP(csr, synapse_gid, $6, $7)
+	   } else {
+	       par_postsynapseSTDP(csr, synapse_gid, $6, $7)
+	       sprint(ncname, "%dto%d", precellid, postcellid)
+	       namestring = new String(ncname)
+	       ncNamelist_chemiSTDP.append(namestring)
+	   }
+	} else {
+           par_postsynapse(csr, synapse_gid, $6, $7)
+	}
+    }
+
+    pc.barrier()
+    allSyn += 1
+}
+
+
+proc par_postsynapse(){ local synapse_gid, weight localobj nc, syn
+    // argument
+    // #o1: post section ref
+    access $o1.sec
+    synapse_gid = $2
+    syn = new Exp2Syn(.5)
+    //--- reversal potential ---
+    syn.e = $3
+
+    weight = $4
+
+    // syn.tau1 = 1
+    // syn.tau2 = 0.5
+    syn.tau1 = 1
+    syn.tau2 = 5
+
+    nc = pc.gid_connect(synapse_gid, syn)
+    nclist_chemi.append(nc)
+    nc.weight = weight
+    // nc.threshold = -30
+    nc.threshold = 0
+
+    synlist.append(syn)
+}
+
+
+proc par_postsynapseSTDP(){ local synapse_gid, weight localobj nc, syn
+    // argument
+    // #o1: post section ref
+    access $o1.sec
+    synapse_gid = $2
+    syn = new ExpSynSTDP(.5)
+    //--- reversal potential ---
+    syn.e = $3
+
+    weight = WKMOSTDP
+    syn.LR = WKMOSTDP * 0.1
+    syn.p = 1
+    syn.tau = 5
+    syn.dtau = 50
+    syn.maxWeight = 1
+
+    nc = pc.gid_connect(synapse_gid, syn)
+    nclist_chemiSTDP.append(nc)
+    nc.weight = weight
+    // nc.threshold = -30
+    nc.threshold = 0
+
+    synlist.append(syn)
+}
+
+proc par_postsynapseSTDPRUP(){ local synapse_gid, weight localobj nc, syn
+    // argument
+    // #o1: post section ref
+    access $o1.sec
+    synapse_gid = $2
+    syn = new ExpSynSTDP_FastDecay(.5)
+    //--- reversal potential ---
+    syn.e = $3
+
+    weight = $4
+    syn.LR = 0.001 * 0.1
+    syn.p = 1
+    syn.tau = 5
+    syn.maxWeight = 0.1
+    syn.decay = 1000
+    syn.wbase = $4
+
+    nc = pc.gid_connect(synapse_gid, syn)
+    nclist_chemiSTDPRUP.append(nc)
+    nc.weight = weight
+    // nc.threshold = -30
+    nc.threshold = 0
+
+    synlist.append(syn)
+}
+
+proc par_presynapse(){ local synapse_gid localobj nc
+    // argument
+    // $o1: pre section ref
+    access $o1.sec
+    synapse_gid = $2
+    nc = new NetCon(&v(.5), nil)
+
+    nc.threshold = $3
+
+    nclist.append(nc)
+    pc.set_gid2node(synapse_gid, pc.id)
+    pc.cell(synapse_gid, nc)
+}
+
+//-----------------------------
+// parallel gap junction (electrical synapse)
+//
+objref par_gaps
+par_gaps = new List()
+gap_src_gid = 2
+proc par_gap_create() {
+    // argument
+    // $1:gid of Compartment 1
+    // $2:num of Compartment 1
+    // $3:gid of Compartment 2
+    // n$4:num of Compartment 2
+    // $5:conductance (default : 1e-10(1/megohm))
+    if (pc.gid_exists($1)) {
+        par_gap_create1($1, $2, gap_src_gid + 1, gap_src_gid, $5)
+    }
+    if (pc.gid_exists($3)) {
+        par_gap_create1($3, $4, gap_src_gid, gap_src_gid + 1, $5)
+    }
+    gap_src_gid += 2 
+}
+
+proc par_gap_create1() { localobj c, g
+    c = pc.gid2obj($1)
+    c.Dend[$2] {
+	//--- Gap Create ---
+	g = new gGapPar(.5)
+        par_gaps.append(g)
+        pc.target_var(&g.vgap, $3)
+        pc.source_var(&v(.5), $4)
+        g.g = $5
+    }
+}
+
+proc p_translation() { localobj c
+    // argument
+    // $1: gid of the target cell
+    // $2: translation x
+    // $3: translation y
+    // $4: translation z
+    if (pc.gid_exists($1)) {
+	c = pc.gid2obj($1)
+	c.translation($2, $3, $4) // CellSwc proc
+    }
+}
+
+proc p_getPosition() { local j, meanx, meany, meanz localobj c
+    if (pc.gid_exists($1)) {
+	c = pc.gid2obj($1)
+	//--- calc gravity center ---
+	meanx = meany = meanz = 0.0
+	for(j = 0; j < c.SectionNum; j += 1){
+	    c.Dend[j] {
+		meanx += x3d(0)
+		meany += y3d(0)
+		meanz += z3d(0)
+	    }
+	}
+	meanx /= c.SectionNum
+	meany /= c.SectionNum
+	meanz /= c.SectionNum    
+	//--- print position ---
+	print "cell num = ", $1
+	print "x = ", meanx
+	print "y = ", meany
+	print "z = ", meanz
+    }
+}
+
+proc cellrotation() { local tmpx, tmpy, tmpz, tmp0x, tmp0y, tmp0z, tmp1x, tmp1y, tmp1z, diam0, diam1 localobj cell, rot
+    cell = $o1
+    rot  = $o2
+    
+    for (j = 0; j <  cell.SectionNum ; j += 1) {
+	cell.Dend[j] {
+	    tmp0x = x3d(0)
+	    tmp0y = y3d(0)
+	    tmp0z = z3d(0)
+	    diam0 = diam3d(0)
+	    tmp1x = x3d(1)
+	    tmp1y = y3d(1)
+	    tmp1z = z3d(1)
+	    diam1 = diam3d(1)
+	    
+	    pt3dclear()
+	    
+	    //--- calc rotation ---
+	    tmpx = rot.x(0) * tmp0x + rot.x(1) * tmp0y + rot.x(2) * tmp0z
+	    tmpy = rot.x(3) * tmp0x + rot.x(4) * tmp0y + rot.x(5) * tmp0z
+	    tmpz = rot.x(6) * tmp0x + rot.x(7) * tmp0y + rot.x(8) * tmp0z
+	    pt3dadd(tmpx, tmpy, tmpz, diam0)
+	    
+	    tmpx = rot.x(0) * tmp1x + rot.x(1) * tmp1y + rot.x(2) * tmp1z
+	    tmpy = rot.x(3) * tmp1x + rot.x(4) * tmp1y + rot.x(5) * tmp1z
+	    tmpz = rot.x(6) * tmp1x + rot.x(7) * tmp1y + rot.x(8) * tmp1z
+	    pt3dadd(tmpx, tmpy, tmpz, diam1)
+	}
+    }
+}

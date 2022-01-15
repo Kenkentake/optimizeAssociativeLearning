@@ -1,0 +1,331 @@
+//*************************
+// readSynList.hoc
+// 2012/01/27
+// Yusuke Mori
+//*************************
+
+{load_file("nrngui.hoc")}
+/*
+if(name_declared("WUPK")!=5){ execute("WUPK=1.0")}
+if(name_declared("WMPK")!=5){ execute("WMPK=1.0")}
+
+if(name_declared("WKMO")!=5){ execute("WKMO=1.0")}
+if(name_declared("WKML")!=5){ execute("WKML=1.0")}
+if(name_declared("WKF")!=5){ execute("WKF=1.0")}
+
+if(name_declared("WMOMO")!=5){ execute("WMOMO=1.0")}
+if(name_declared("WMOML")!=5){ execute("WMOML=1.0")}
+if(name_declared("WMOF")!=5){ execute("WMOF=1.0")}
+
+if(name_declared("WMLK")!=5){ execute("WMLK=1.0")}
+if(name_declared("WMLMO")!=5){ execute("WMLMO=1.0")}
+if(name_declared("WMLML")!=5){ execute("WMLML=1.0")}
+if(name_declared("WMLF")!=5){ execute("WMLF=1.0")}
+
+if(name_declared("WFUP")!=5){ execute("WFUP=1.0")}
+if(name_declared("WFMP")!=5){ execute("WFMP=1.0")}
+if(name_declared("WFL")!=5){ execute("WFL=1.0")}
+if(name_declared("WFK")!=5){ execute("WFK=1.0")}
+if(name_declared("WFMO")!=5){ execute("WFMO=1.0")}
+if(name_declared("WFML")!=5){ execute("WFML=1.0")}
+if(name_declared("WFF")!=5){ execute("WFF=1.0")}
+*/
+
+objref synfile
+strdef buf
+
+//--- syn param (GLOBAL) ---
+s_pre_cell = 0
+s_post_cell = 0
+s_pre_comp = 0
+s_post_comp = 0
+strdef s_type
+strdef s_subtype
+s_sth = 0
+
+//--- syn global od
+synid = 100000
+
+
+// type 
+// 0: rn
+// 1: upn
+// 2: mpn
+// 3: ln
+// 4: kc
+// 5: mbon
+// 6: apl (mbln)
+// 7: feedback
+// 8: pam
+// 9: dpm (mbln)
+func judgeType() { 
+    jid = $1
+    ret = 0
+    if (jid < 163) { // upn
+       ret = 1
+    } else if (jid < 163 + 183) { // mpn
+       ret = 2
+    } else if (jid < 421) { // ln
+       ret = 3
+    } else if (jid < 874) { // kc
+       ret = 4
+    } else if (jid < 879) { // mbon
+       ret = 5
+    } else if (jid == 879) { // apl (mbln)
+       ret = 6
+    } else if (jid == 880) { // dpm (mbln)
+       ret = 9
+    } else if (jid < 884) { // feedback
+       ret = 7
+    } else if (jid < 886) { // pam
+       ret = 8
+    }
+    return ret
+}
+
+func calcCoefficient() {
+    preType = $1
+    postType = $2
+    if (preType == 0) {
+       if (postType == 1) {
+          return WRUP
+       } else if (postType == 2) {
+       	  return WRMP
+       } else if (postType == 3) {
+       	  return WRL
+       } else {
+       	  return 0.0
+       }
+    } else if (preType == 1) {       
+       if (postType == 0) {
+       	  return WUPR
+       } else if (postType == 2) {
+       	  return WUPMP
+       } else if (postType == 3) {
+       	  return WUPL
+       } else if (postType == 4) {
+       	  return WUPK
+       } else {
+       	  return 0.0
+       }
+    } else if (preType == 2) {       
+       if (postType == 0) {
+       	  return WMPR
+       } else if (postType == 1) {
+       	  return WMPUP
+       } else if (postType == 2) {
+       	  return WMPMP	  
+       } else if (postType == 3) {
+       	  return WMPL
+       } else if (postType == 4) {
+       	  return WMPK
+       } else {
+       	  return 0.0
+       }
+    } else if (preType == 3) {       
+       if (postType == 0) {
+       	  return WLR
+       } else if (postType == 1) {
+       	  return WLUP
+       } else if (postType == 2) {
+       	  return WLMP
+       } else if (postType == 3) {
+       	  return WLL
+       } else {
+       	  return 0.0
+       }              
+    } else if (preType == 4) { // KC to
+       if (postType == 4) {
+       	  return WKK
+       } else if (postType == 5) {
+       	  return WKMO
+       } else if (postType == 6) {
+       	  return WKAPL
+       } else if (postType == 9) {
+       	  return WKDPM
+       } else if (postType == 7) {
+       	  return WKF
+       } else {
+       	  return 0.0
+       }              
+    } else if (preType == 5) { // MBON to
+       if (postType == 4) {
+       	  return WMOK
+       } else if (postType == 5) {
+       	  return WMOMO
+       } else if (postType == 6) {
+       	  return WMOAPL
+       } else if (postType == 7) {
+       	  return WMOF
+       } else {
+       	  return 0.0
+       }            
+    } else if (preType == 6) { // APL (mbln) to
+       if (postType == 4) {
+       	  return WAPLK
+       } else if (postType == 5) {
+       	  return WAPLMO
+       } else if (postType == 9) {
+       	  return WAPLDPM
+       } else if (postType == 7) {
+       	  return WAPLF
+       } else {
+       	  return 0.0
+       }                
+    } else if (preType == 9) { // DPM (mbln) to
+       if (postType == 5) {
+       	  return WDPMMO
+       } else {
+       	  return 0.0
+       }                
+    } else if (preType == 7) { // feedback to
+       if (postType == 0) {
+       	  return WFR
+       } else if (postType == 1) {
+       	  return WFUP
+       } else if (postType == 2) {
+       	  return WFMP
+       } else if (postType == 3) {
+       	  return WFL
+       } else if (postType == 4) {
+       	  return WFK
+       } else if (postType == 5) {
+       	  return WFMO
+       } else if (postType == 6) {
+       	  return WFAPL
+       } else if (postType == 9) {
+       	  return WFDPM
+       } else if (postType == 7) {
+       	  return WFF
+       } else {
+       	  return 0.0
+       }                
+    } else if (preType == 8) { // pam to
+       if (postType == 5) {
+       	  return WDMO
+       }
+    }
+
+}    
+
+proc readsl() {local connect_gid
+    synfile = new File()
+    synfile.ropen($s1)
+    /* read cell ID */
+    synfile.scanstr(buf)          // CellSwc[?]
+
+    //--- pre synapse
+    sscanf(buf, "CellSwc[%d]", &s_pre_cell)
+    
+    //--- post synapse
+    synfile.scanstr(buf)
+    sscanf(buf, "CellSwc[%d]", &s_post_cell)    
+
+    // calc each coefficient
+    // print "-------------------------------------------"
+    pre_comp_type = judgeType(s_pre_cell)
+    post_comp_type = judgeType(s_post_cell)
+    // print pre_comp_type, post_comp_type
+    coefficient = calcCoefficient(pre_comp_type, post_comp_type)
+    if (s_pre_cell == 882 || s_pre_cell == 883) {
+        coefficient = 0
+    }
+    // print "-------------------------------------------"    
+
+    synfile.scanstr(buf)
+    // print $s1
+    /* read data */
+    while(!synfile.eof()){
+	//--- pre synapse
+	s_pre_comp = synfile.scanvar()
+	//--- post synapse
+	s_post_comp = synfile.scanvar()
+	//--- type
+	synfile.scanstr(s_type)
+	//--- subtype
+	synfile.scanstr(s_subtype)
+	//--- strength
+	s_sth = synfile.scanvar()
+	// s_sth = 1
+	//--- connection gid
+        // synapse gid start from ncell + 100
+	connect_gid = synfile.scanvar()
+	// synfile.scanvar()
+	// connect_gid = synid
+	// synid += 1
+
+	// multiply each coefficient
+	s_sth = coefficient * s_sth 
+
+	if(!strcmp (s_type,"Chemi")){
+
+	    if (pre_comp_type == 4 && s_post_cell == 878) { // kc -> mbon
+	    if(!strcmp (s_subtype,"GABA")){ // case of GABA
+		// {p_setChemiSynSTDP(-30, -65, s_sth, connect_gid)}
+		{p_setChemiSynSTDP(-30, 0, s_sth, connect_gid)}
+	    } else {
+		{p_setChemiSynSTDP(-30, 0, s_sth, connect_gid)}
+	    }
+
+            } else if (pre_comp_type == 5 && post_comp_type == 5) { // mbon -> mbon
+                {p_setChemiSyn(-30, 0, s_sth, connect_gid)}
+/*
+            } else if (pre_comp_type == 4 && post_comp_type == 5) { // kc -> mbon
+                {p_setChemiSyn(-30, 0, s_sth, connect_gid)}
+
+
+	    } else if (pre_comp_type == 0 && post_comp_type == 1) { // rn -> upn 
+	    if(!strcmp (s_subtype,"GABA")){ // case of GABA
+		{p_setChemiSynSTDP(-30, -65, s_sth, connect_gid)}
+	    } else {
+		{p_setChemiSynSTDP(-30, 0, s_sth, connect_gid)}
+	    }
+*/
+
+	    } else {
+	    if(!strcmp (s_subtype,"GABA")){ // case of GABA
+		{p_setChemiSyn(-30, -65, s_sth, connect_gid)}
+	    } else {
+		{p_setChemiSyn(-30, 0, s_sth, connect_gid)}
+	    }
+	    }
+	}
+	if(!strcmp (s_type,"Gap")) {
+	   // {p_setGapJunc(0.1)}
+	   // printf("--- NO GAP SETTING !!---\n")
+	}
+    }
+    //--- init gap junction ---
+    pc.setup_transfer()
+    synfile.close()
+}
+
+proc p_setChemiSyn(){
+    // argument
+    // $1 :netcon threshold
+    // $2 :reversal potential 
+    // $3 :netcon weight
+    // $4: connection gid
+
+    // substract 2 from s_pre_comp and s_post_comp 
+    // because id is also substracted 2 when load .swc files
+    par_chemi_create(s_pre_cell, s_pre_comp-2, s_post_cell, s_post_comp-2, $1, $2, $3, $4)
+}
+
+proc p_setChemiSynSTDP(){
+    // argument
+    // $1 :netcon threshold
+    // $2 :reversal potential 
+    // $3 :netcon weight
+    // $4: connection gid
+
+    // substract 2 from s_pre_comp and s_post_comp 
+    // because id is also substracted 2 when load .swc files
+    par_chemiSTDP_create(s_pre_cell, s_pre_comp-2, s_post_cell, s_post_comp-2, $1, $2, $3, $4)
+}
+
+proc p_setGapJunc(){
+    // argument
+    // $1 : gap strength
+    par_gap_create(s_pre_cell, s_pre_comp, s_post_cell, s_post_comp, $1)
+}

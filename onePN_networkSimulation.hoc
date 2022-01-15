@@ -1,0 +1,251 @@
+//*************************
+// networkSimulation.hoc
+// 2012/02/11
+// Yusuke Mori
+//*************************
+
+//--- for debug ---
+debugon = 0
+if (debugon) {
+    print "debug mode"
+}
+
+//--- parallel ----
+objref pc
+pc = new ParallelContext()
+
+//--- define cell classes ---
+//{load_file("ParaCellSwc.hoc")}
+{load_file("./ParaCellSwc.hoc")}
+
+//--- for save ---
+objref allvm
+allvm = new Vector()
+
+//------------------------------
+// make cells
+// (code is in ParaCellSwc.hoc)
+// p_mkRNcells("./input/neuronlist/rn_neuronlist.txt", 0)
+p_mkRNcells("./input/neuronlist/no_rn_neuronlist.txt", 0)
+printf("mkRNCells() done!\n")
+// p_mkALcells("./input/neuronlist/one_al_neuronlist.txt", 0)
+p_mkALcells("./input/neuronlist/al_neuronlist.txt", 0)
+// p_mkALcells("./input/neuronlist/ln_neuronlist.txt", 0)
+printf("mkALCells() done!\n")
+
+
+
+proc checkSectionNum() { local i localobj c
+    for (i = 0; i < cells.count(); i+=1) {
+        c = cells.object[i]
+        print "cellname = ", cellnames.object[int(i / pc.nhost)].s, ", gid = ", i, ", SectionNum = ", c.SectionNum
+    }
+}
+checkSectionNum()
+printf("checkSectionNum() done!\n")
+
+proc minimumnetstim(){ local i  localobj namesf strdef tmp
+
+     for (i=0; i<190; i+=1){
+        p_mkstim_ic(2, i, 15, 1e9, 0)
+     }
+}
+//minimumnetstim()
+
+strdef zero_olfactory_spt_file_dir
+sprint(zero_olfactory_spt_file_dir, "./input/spiketiming/ORN/old/0ng_1stim/")
+strdef strong_olfactory_spt_file_dir
+sprint(strong_olfactory_spt_file_dir, "./input/spiketiming/ORN/old/1000ng_1stim/")
+
+
+// make input stimulation
+
+objref stims
+proc mkPNSerialStim() {localobj rnd, c, ic
+    rnd = new Random(pc.id)
+    strdef spiketiming
+    strdef dir
+    strdef zero_spt
+    sprint(zero_spt, "%sspt%03d.dat", zero_olfactory_spt_file_dir, int(rnd.uniform(0,999)))    
+    strdef strong_spt
+    sprint(strong_spt, "%sspt%03d.dat", strong_olfactory_spt_file_dir, int(rnd.uniform(0,999)))
+    stims = new List()
+    for (i=0; i < cells.count(); i+=1) {
+        cellgid = i * pc.nhost + pc.id
+	// if (cellgid == 0) {
+	if (cellgid == 163 + 183 + 1) { // ln1
+	    // cells.object[i].setIClamp(STOPTIME, dt, strong_spt)	
+            c = cells.object(i)
+	    c.Dend[316] ic = new IClamp(1.0)
+	    ic.amp = 0.47
+	    ic.dur = 500
+	    ic.del = 10
+	    stims.append(ic)
+	}
+    }
+}
+mkPNSerialStim()
+printf("mkPNSerialStim() done!\n")
+
+proc mkRNSerialStim() { local minid, maxid, glomid localobj rnd
+    rnd = new Random(pc.id)
+    strdef zero_spt
+    sprint(zero_spt, "%sspt%03d.dat", zero_olfactory_spt_file_dir, int(rnd.uniform(0,999)))
+    strdef strong_spt
+    sprint(strong_spt, "%sspt%03d.dat", strong_olfactory_spt_file_dir, int(rnd.uniform(0,999)))
+    glomid = GLOMID
+    minid = 20 * glomid
+    maxid = 20 * (glomid + 1)
+    for (i=0; i < rncells.count(); i+=1) {
+        rngid = i * pc.nhost + pc.id
+	if ( rngid >= minid && rngid < maxid ) { // stimulated glom (rns)
+	     rncells.object[i].setIClamp(STOPTIME, dt, strong_spt)
+	} else {                       // not stimulated glom (rns)
+	     rncells.object[i].setIClamp(STOPTIME, dt, zero_spt)	    
+	}
+     }
+}
+// mkRNSerialStim()
+printf("mkRNSerialStim() done!\n")
+
+//------------------------------
+// make Chemical Synapse and Gap Junction (Electrical Synapse)
+// (code is in ParaCellSwc.hoc)
+{load_file("./readSynList.hoc")}
+// {load_file("./input/synlist/importRtoASynList.hoc")}
+// {load_file("./input/synlist/importAtoRSynList.hoc")}
+{load_file("./input/synlist/importSynListAL.hoc")}
+printf("importSynList(make connection from matrix) done!\n")
+
+//------------------------------
+
+func numchild() { local ii localobj sl
+    ii = 0
+    sl = new SectionList()
+    sl.children()
+    forsec sl {
+	ii += 1
+    }
+    return ii
+}
+
+//------------------------------
+// zapping
+//
+
+//{load_file("zapping.hoc")}
+{load_file("./zapping.hoc")}
+zapping(zapdegree)
+
+double zaplen[cells.count + 1] // + 1 is for pc.id with cell.count = 0
+for j = 0, cells.count - 1 {
+    zaplen[j] = 0
+    forsec zaplist[j] {
+	zaplen[j] += 1
+    }
+}
+
+
+//------------------------------
+
+//------------------------------
+// step
+//
+objref fv
+fv = new File()
+strdef filename
+strdef command
+
+objref sh
+if (debugon) {
+    sh = new PlotShape(1)
+    sh.scale(0,0)
+    
+    sh.exec_menu("Shape Plot")
+    
+    nframe = 0
+}
+
+tstop = STOPTIME
+if(debugon) {tstop = 0.01}
+dt = 0.05           // number of calculation
+nstep_steprun = 4   // number of steps
+
+saveframe = 0
+
+proc pstep() { local i, j
+    for i = 1, nstep_steprun {
+	fadvance() // include : t = t + dt
+	
+    }
+    // check
+    if (pc.id == 0 ) {printf("%lf\n", t)}
+
+    // save all compartment's voltage uncomment below lines
+//    if (1) {
+//     	saveframe = saveframe + 1
+//     	for j = 0, cells.count - 1 {
+//     	    sprint(filename, "result/%s_zap%d_%04d.val", cellnames.object[j].s, zapdegree, saveframe)
+//     	    fv.wopen(filename)
+//     	    allvm.resize(zaplen[j])
+//     	    forsec zaplist[j] {
+//		fv.printf("%f\n", v(.5))
+//     	    }
+//	    fv.printf("\n")
+//     	    fv.flush()
+//     	    fv.close()
+//     	}
+//     }
+    // if (debugon) { sh.flush() }  
+}
+
+//------------------------------
+
+//------------------------------
+// parallel simulation control 
+//
+proc pcontinue() {local time, timestep
+    while(t < tstop){
+    	pstep()
+    }
+  //  timestep = dt * 20
+   // for(time=0;time<tstop;time+=timestep){
+
+   //pc.psolve(time+timestep)
+   //	pc.barrier()
+   // }
+}
+
+proc prun() {
+    init()
+    pcontinue(tstop)
+}
+
+{pc.set_maxstep(10)}
+elapse_time = startsw()
+
+strdef VOLTAGEOUT_DIR, SPIKEOUT_DIR
+sprint(VOLTAGEOUT_DIR,"./one_result/%010d/voltage/",SAVEDIR)
+sprint(SPIKEOUT_DIR,"./one_result/%010d/spike/",SAVEDIR)
+
+{load_file("./recorder.hoc")}
+setVoltageRecord()
+spikerecord()
+
+//setOneVoltageRecord()
+//onespikerecord()
+
+prun()
+
+fprintVoltageRecord()
+spikeout()
+
+elapse_time = startsw() - elapse_time
+printf("elapse time is %g\n", elapse_time)
+//------------------------------
+{pc.runworker()}
+
+if (!debugon) {
+    {pc.done()}    
+    quit()
+}
