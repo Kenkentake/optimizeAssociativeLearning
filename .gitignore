@@ -56,6 +56,10 @@ dkms.conf
 
 # synlist
 /input/synlist/alsynlist/*
+/input/synlist/atorsynlist/*
+/input/synlist/rtoasynlist/*
+/input/synlist/rtoupsynlist/*
+
 
 # result
 /one_result/*

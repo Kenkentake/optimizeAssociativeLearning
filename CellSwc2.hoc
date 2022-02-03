@@ -16,6 +16,8 @@ public spikegenIds
 public connect2target
 // set physiological paramters eact type neurons
 public insertHH, insertRN, insertLN, insertPN, insertLNBelmabrouk, insertLNTemp, insertKC, insertREST
+// for evalFitness
+public get_spike_num, get_time, get_freq, print_tvecSR
 // for record
 public setSpikeRecord, setMultiSpikeRecord, fprintSpikeRecord, fprintMultiSpikeRecord
 // for input stimulus
@@ -682,6 +684,40 @@ proc setMultiSpikeRecord(){local cmpt localobj nil
     }
 }
 
+func get_spike_num(){
+    return tvecSR.size()
+}
+
+// not use
+func get_time(){local time
+    time = (tvecSR.o($2) + tvecSR.o($1)) / 2
+    return time
+}
+
+func get_freq(){local freq, i, record_time, spike_counter
+    record_time = $1 
+    spike_counter = 0
+    if(tvecSR.size() > 0){
+        for i = 0, tvecSR.size() - 1{
+            if(record_time-30 < tvecSR.x(i) && tvecSR.x(i) < record_time){
+                spike_counter = spike_counter + 1
+            }
+        }
+    }
+    freq = spike_counter / 0.03
+    return freq
+}
+
+proc print_tvecSR(){
+    if(tvecSR.size() > 0){
+        printf("tvecSR size = %d\n", tvecSR.size())
+        for i = 0, tvecSR.size() - 1{
+            printf("tvecSR(%d) = %f\n", i, tvecSR.x(i))
+        }
+    }
+}
+
+
 objref tvecL, cmptL, ncL
 objref fileSR
 proc fprintSpikeRecord(){local i, interval, tstop, delay
@@ -695,7 +731,7 @@ proc fprintSpikeRecord(){local i, interval, tstop, delay
     fileSR.wopen(filename)
     fileSR.printf("$ Stimulation Interval(ms): %d\n",interval)
     fileSR.printf("$ Delay(ms): %f\n",delay)
-    //print "tvecSR  ",tvecSR.size()
+    print "tvecSR  ",tvecSR.size()
     fileSR.printf("$ Number of data : %d\n",tvecSR.size())
     fileSR.printf("$ TSTOP : %d\n",tstop)
     tvecSR.printf(fileSR,"%5.5f\n")
@@ -728,6 +764,7 @@ proc fprintMultiSpikeRecord(){local i, interval, tstop, delay localobj mt
     mt.fprint(fileSR,"%5.5f\t")
     fileSR.close()
 }
+
 
 objref ic
 objref stim_vec, tvec, stim_flg, spiketiming1, spiketiming2

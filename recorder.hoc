@@ -4,6 +4,42 @@ objref volt_vec  // record voltage
 objref volt_rlist  // record rn membrance potential
 objref volt_rvec  // record rn voltage
 
+func getNumSpike(){local i, spike_num
+    printf("cells.count is %d\n", cells.count())
+    for i = 0, cells.count()-1{
+       spike_num = cells.object[i].get_spike_num()
+    }
+    if(spike_num>0){
+        return spike_num
+    }else{
+        printf("No spike\n")
+        return spike_num
+    }
+}
+
+func getTime(){local i, time 
+    start_time_index = $1
+    end_time_index = $2
+    for i = 0, cells.count()-1{
+       time = cells.object[i].get_time(start_time_index, end_time_index)
+    }
+    return time
+}
+
+func getFreq(){local i, freq, record_time 
+    record_time = $1
+    for i = 0, cells.count()-1{
+       freq = cells.object[i].get_freq(record_time)
+    }
+    return freq
+}
+
+proc printTvecSR() {
+    for i = 0, cells.count()-1{
+       cells.object[i].print_tvecSR()
+    }
+}
+
 proc setVoltageRecord() {local i,j, SynapsePrintOn, id, rngid, minid, maxid, glomid
     volt_tvec = new Vector()
     volt_tvec.record(&t)
@@ -76,8 +112,12 @@ proc setOneVoltageRecord() {local i,j, SynapsePrintOn, id, rngid, minid, maxid, 
     }
 }
 
-proc fprintVoltageRecord() {local j localobj mt, file
-    strdef filename
+strdef sfilename
+strdef VOLTAGEOUT_DIR, SPIKEOUT_DIR
+// SAVEDIR=0000000003
+sprint(VOLTAGEOUT_DIR,"./al_result/%010d/voltage/",SAVEDIR)
+sprint(SPIKEOUT_DIR,"./al_result/%010d/spike/",SAVEDIR)
+proc fprintVoltageRecord() {local j, glomid, maxid, minid localobj mt, file
     print "cells.count = ", cells.count()
     print "rncells.count = ", rncells.count()     
     for(j = 0; j<cells.count();j+=1){
@@ -87,6 +127,7 @@ proc fprintVoltageRecord() {local j localobj mt, file
         mt.setcol(0,volt_tvec)
         mt.setcol(1,volt_list.o(j))
         sprint(filename, "%s%s.txt", VOLTAGEOUT_DIR, cellnames.object[j].s)
+        // printf("filename is %s\n", filename)
         file.wopen(filename)
         mt.fprint(file,"%5.5f\t")
         file.close()
@@ -122,6 +163,7 @@ proc fprintVoltageVecRecord() {localobj mt, vfile, tfile
     if(j == 0){
         vfile = new File()
         sprint(vfilename, "%s%sv.dat", VOLTAGEOUT_DIR, cellnames.object[j].s)	
+        printf("vfilename is %s\n", vfilename)
         vfile.wopen(vfilename)
         volt_vec.vwrite(vfile)
         vfile.close()
@@ -135,19 +177,18 @@ proc fprintVoltageVecRecord() {localobj mt, vfile, tfile
     }
 }
 
-
-proc spikerecord(){local i localobj nc, nil
+proc spikerecord(){local i, j localobj nc, nil
     for (j = 0; j<cells.count(); j+=1) {
-	cells.object[j].setSpikeRecord(10)
+	    cells.object[j].setSpikeRecord(10)
     }
     for (j = 0; j<rncells.count(); j+=1) {
         rngid = j * pc.nhost + pc.id
         glomid = GLOMID
         minid = 20 * glomid
         maxid = 20 * (glomid + 2)
-	if (rngid >= minid && rngid < maxid) {    
-	rncells.object[j].setSpikeRecord(3)
-	}
+	    if (rngid >= minid && rngid < maxid) {    
+	        rncells.object[j].setSpikeRecord(3)
+	    }
     }    
 }
 
@@ -163,23 +204,25 @@ proc multiSpikeRecord(){local i localobj nc, nil
     }
 }
 
-proc spikeout(){ local cellgid
+proc spikeout(){ local cellgid, j
     strdef sfilename
+    print "cells.count = ", cells.count()
+    print "rncells.count = ", rncells.count()     
     for (j = 0; j<cells.count(); j+=1) {
     	cellgid = pc.nhost * j + pc.id
         sprint(sfilename, "%s%s", SPIKEOUT_DIR, cellnames.object[j].s)
-	cells.object[j].fprintSpikeRecord(sfilename,INTERVAL,STOPTIME)
+	    cells.object[j].fprintSpikeRecord(sfilename,INTERVAL,STOPTIME)
     }
     for (j = 0; j<rncells.count(); j+=1) {
         rngid = j * pc.nhost + pc.id
         glomid = GLOMID
         minid = 20 * glomid
         maxid = 20 * (glomid + 2)
-	if (rngid >= minid && rngid < maxid) { 
-        sprint(sfilename, "%s%s", SPIKEOUT_DIR, rncellnames.object[j].s)
-        // fprintSpikeRecord(SPIKEOUT_DIR, INTERVAL, STOPTIME)
-	rncells.object[j].fprintSpikeRecord(sfilename,INTERVAL,STOPTIME)
-	}
+	    if (rngid >= minid && rngid < maxid) { 
+            sprint(sfilename, "%s%s", SPIKEOUT_DIR, rncellnames.object[j].s)
+            // fprintSpikeRecord(SPIKEOUT_DIR, INTERVAL, STOPTIME)
+	        rncells.object[j].fprintSpikeRecord(sfilename,INTERVAL,STOPTIME)
+	    }
     }    
 }
 

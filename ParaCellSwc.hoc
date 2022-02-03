@@ -94,7 +94,7 @@ proc p_mkcells() { local i, j, cellnum localobj cell, namestring, nc, datafile s
 		//--- append to the list ---
 		cells.append(cell)
 		cellnum = cells.count() - 1
-		print "Cell Number : " , cellnum, " of the pc_id : ", pc.id, " i : ", i
+		// print "Cell Number : " , cellnum, " of the pc_id : ", pc.id, " i : ", i
 		
 		//--- area set ---
 
@@ -253,7 +253,7 @@ proc p_mkRNcells() { local i, j, cellnum localobj cell, namestring, nc strdef ce
 
     for (i = 0; i < NRNCELLS; i += 1) {	
 	if(i % pc.nhost == pc.id || $2 == 1){
-	        rnswclist.scanstr(name)
+	    rnswclist.scanstr(name)
 		namestring = new String(name)
 		rncellnames.append(namestring)	
 		//--- cell data file ---
@@ -402,6 +402,12 @@ objref synlist
 nclist = new List()
 synlist = new List()
 
+objref post_gid_vec
+objref post_coefficient_vec
+objref post_strength_vec
+post_gid_vec = new Vector()
+post_coefficient_vec = new Vector()
+post_strength_vec = new Vector()
 
 objref nclist_chemi
 nclist_chemi = new List()
@@ -423,41 +429,46 @@ proc par_chemi_create(){local synapse_gid, precompid, postcompid localobj nc, sy
     // $6 reversal potential
     // $7 netcon weight
     // $8 connection gid
+    // $9 coefficient_index
+    // $10 strength
  
-   //--- pre
+    //--- pre
     if(pc.gid_exists($1)){
-	c = pc.gid2obj($1)
-	//print "pre", $2, c.SectionNum
-	precompid = $2
-	if (precompid > c.SectionNum-1) {
-	    print "out of range Dend[", $2, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
+	    c = pc.gid2obj($1)
+	    //print "pre", $2, c.SectionNum
+	    precompid = $2
+	    if (precompid > c.SectionNum-1) {
+	        print "out of range Dend[", $2, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
             wrongPreSyn += 1
-	    print "check", " wrongPretSyn = ", wrongPreSyn, "allSyn = ", allSyn	    
-	    precompid = c.SectionNum - 2
-	}        
-	c.Dend[precompid] csr = new SectionRef()
-	synapse_gid = $8
-	par_presynapse(csr, synapse_gid, $5)
+	        print "check", " wrongPretSyn = ", wrongPreSyn, "allSyn = ", allSyn	    
+	        precompid = c.SectionNum - 2
+	    }        
+	    c.Dend[precompid] csr = new SectionRef()
+	    synapse_gid = $8
+	    par_presynapse(csr, synapse_gid, $5)
     }
     
     pc.barrier()
     
     //--- post
     if(pc.gid_exists($3)){
-	c = pc.gid2obj($3)
-	// print "post", $4, c.SectionNum
-	postcompid = $4	
-	if (postcompid > c.SectionNum-1) {
-	    print "out of range Dend[", $4, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
+	    c = pc.gid2obj($3)
+	    // print "post", $4, c.SectionNum
+	    postcompid = $4	
+	    if (postcompid > c.SectionNum-1) {
+	        print "out of range Dend[", $4, "]", " SectionNum = ", c.SectionNum, " synapse_gid = ", $8
             wrongPostSyn += 1
-	    print "check", " wrongPostSyn = ", wrongPostSyn, "allSyn = ", allSyn	    
-	    postcompid = c.SectionNum - 2
-	}        
-	c.Dend[postcompid] csr = new SectionRef()
-	synapse_gid = $8
+	        print "check", " wrongPostSyn = ", wrongPostSyn, "allSyn = ", allSyn	    
+	        postcompid = c.SectionNum - 2
+	    }        
+	    c.Dend[postcompid] csr = new SectionRef()
+	    synapse_gid = $8
         par_postsynapse(csr, synapse_gid, $6, $7)
+        post_gid_vec.append($3)
+        post_coefficient_vec.append($9)
+        // printf("post_coefficient_vec(%d) = %d after append\n", post_coefficient_vec.size() - 1, post_coefficient_vec.x(post_coefficient_vec.size() - 1))
+        post_strength_vec.append($10)
     }
-
     pc.barrier()
     allSyn += 1
 }
@@ -481,6 +492,8 @@ proc par_chemiSTDP_create(){local synapse_gid, precompid, postcompid localobj nc
     // $6 reversal potential
     // $7 netcon weight
     // $8 connection gid
+    // $9 coefficient_index
+    // $10 strength
  
    //--- pre
     if(pc.gid_exists($1)){
@@ -527,6 +540,9 @@ proc par_chemiSTDP_create(){local synapse_gid, precompid, postcompid localobj nc
 	} else {
            par_postsynapse(csr, synapse_gid, $6, $7)
 	}
+    post_gid_vec.append($3)
+    post_coefficient_vec.append($9)
+    post_strength_vec.append($10)
     }
 
     pc.barrier()
