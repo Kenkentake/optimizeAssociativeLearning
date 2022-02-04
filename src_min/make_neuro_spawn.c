@@ -2,6 +2,8 @@
 #include <mpi.h>
 #include <stdlib.h>
 
+#define HOCFILE "../al_networkSimulation.hoc"
+
 /*definition of the wrapper of MPI_Bcast (function for communication with NEURON) */
 void MPI_Bcast_to_NEURON(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm){
     // printf("Entered MPI_Bcast_to_NEURON\n");
@@ -42,15 +44,18 @@ int main(int argc, char **argv){
     int send_count;
     double flg_termination;
     
-    char *exec_prog=NULL;
+    char *exec_neuron=NULL;
+    char *neuron_option=NULL;
+    char *exec_hoc=NULL;
     char **spawn_argvs=NULL;
     int spawn_argv_size=4;
 
-    char specials[] = "../hocfile_forSB/x86_64/special";
     char *neuron_argv[] = {
-        "-mpi",
         "-nobanner", 
-        "../al_networkSimulation.hoc", 
+        "-mpi",
+        "-c",
+        "{}",
+        HOCFILE, 
         NULL};
     // char *neuron_argv[] = {"-mpi", "-nobanner", "/home/hp200177/u00690/neuron_kplus/hoc/test_gather.hoc", NULL};
     int neuron_mode = 1;
@@ -75,61 +80,52 @@ int main(int argc, char **argv){
 
     /* recieve the information of the scale of population from parent process*/
     /* required: num_of_my_pop, dimension, */
-    if(argc>2){
 	num_of_my_pop = atoi(argv[1]);
 	dimension = atoi(argv[2]);
-    }else{
-	num_of_my_pop = 32;
-	dimension = 72;
+    num_of_procs_nrn = atoi(argv[3]);
+    exec_neuron = (char *)malloc(sizeof(char) * 512);
+    if(exec_neuron==NULL){
+      printf("memory allocation error occurs @{exec_neuron} in make_neuro_spawn\n");
     }
-    if(argc > 3){
-      num_of_procs_nrn = atoi(argv[3]);
-    }
+    sprintf(exec_neuron, "%s", argv[4]);
 
-    exec_prog = (char *)malloc(sizeof(char) * 512);
-    if(exec_prog==NULL){
-      printf("memory allocation error occurs @{exec_prog} in make_neuro_spawn\n");
+    neuron_option = (char *)malloc(sizeof(char) * 512);
+    if(neuron_option==NULL){
+      printf("memory allocation error occurs @{neuron_option} in make_neuro_spawn\n");
     }
-    /* i must reinit the neuron_argv (spawn_argv)*/
-    if(argc > 4){
-      sprintf(exec_prog, "%s", argv[4]);
-      spawn_argvs = (char **)malloc(sizeof(char *) * spawn_argv_size);
-      if(spawn_argvs==NULL){
-        printf("memory allocation error occurs @{spawn_argvs}\n");
+    sprintf(neuron_option, "%s", argv[5]);
+    neuron_argv[3] = argv[5];
+
+    exec_hoc = (char *)malloc(sizeof(char) * 512);
+    if(exec_hoc==NULL){
+      printf("memory allocation error occurs @{exec_hoc} in make_neuro_spawn\n");
+    }
+    sprintf(exec_hoc, "%s", argv[6]);
+    neuron_argv[4] = argv[6];
+
+    spawn_argvs = (char **)malloc(sizeof(char *) * spawn_argv_size);
+    if(spawn_argvs==NULL){
+      printf("memory allocation error occurs @{spawn_argvs}\n");
+    }
+    for(i=0;i<spawn_argv_size;++i){
+      spawn_argvs[i] = (char *)malloc(sizeof(char) * 256);
+      if(spawn_argvs[i]==NULL){
+        printf("memory allocation error occurs @{spawn_argvs[%d]}\n", i);
       }
-      for(i=0;i<spawn_argv_size;++i){
-        spawn_argvs[i] = (char *)malloc(sizeof(char) * 256);
-        if(spawn_argvs[i]==NULL){
-          printf("memory allocation error occurs @{spawn_argvs[%d]}\n", i);
-        }
-      }
-      sprintf(spawn_argvs[0], "%d", num_of_my_pop);
-      sprintf(spawn_argvs[2], "%d", dimension);
-      spawn_argvs[3] = NULL;
-    }else{
-      sprintf(exec_prog, "%s", specials);
-      spawn_argvs = neuron_argv;
-      neuron_mode = 1;
-      printf("start NEURON mode\n");
     }
+    sprintf(spawn_argvs[0], "%d", num_of_my_pop);
+    sprintf(spawn_argvs[2], "%d", dimension);
+    spawn_argvs[3] = NULL;
+    dim_conMat = atoi(argv[7]);
+    num_of_cell_combination = dim_conMat * dim_conMat;
+    sprintf(spawn_argvs[1], "%d", num_of_cell_combination);
+    sprintf(connection_data, "%s", argv[8]);
+    printf("connection_data = %s\n", connection_data);
 
-    /*for test execution*/
-    if(argc > 5){
-      dim_conMat = atoi(argv[5]);
-      num_of_cell_combination = dim_conMat * dim_conMat;
-      sprintf(spawn_argvs[1], "%d", num_of_cell_combination);
-    }
-    // num_of_procs_nrn = dim_conMat;
-    if(argc > 6){
-      sprintf(connection_data, "%s", argv[6]);
-      printf("connection_data = %s\n", connection_data);
-    }
-
-    // dimension = num of parameters
     printf("dimension = %d, num_of_cell_combination = %d\n", dimension, num_of_cell_combination);
 
     printf("info@make_neuro_spawn:\n");
-    printf("num_of_my_pop=%d, dimension=%d, num_of_procs_nrn=%d, exec_prog=%s, dim_conMat=%d, connection_data=%s\n", num_of_my_pop, dimension, num_of_procs_nrn, exec_prog, dim_conMat, connection_data);
+    printf("num_of_my_pop=%d, dimension=%d, num_of_procs_nrn=%d, exec_neuron=%s, neuron_option=%s, exec_hoc=%s, dim_conMat=%d, connection_data=%s\n", num_of_my_pop, dimension, num_of_procs_nrn, exec_neuron, neuron_option, exec_hoc, dim_conMat, connection_data);
 
     /* set variables for communication */
     // = num of parameters * num of all pop / num of child procs =  14 * (8 / 4) = 28
@@ -209,8 +205,8 @@ int main(int argc, char **argv){
     /* when it does not work, uncomment the below sentense*/
     /* for(i=0; i < 8; ++i){ */
     /* 	if(spawn_parent_rank%8 == i){ */
-    // MPI_Comm_spawn(exec_prog, spawn_argvs, num_of_procs_nrn, MPI_INFO_NULL, 0, MPI_COMM_SELF, &intercomm, MPI_ERRCODES_IGNORE);
-    MPI_Comm_spawn(exec_prog, neuron_argv, num_of_procs_nrn, MPI_INFO_NULL, 0, MPI_COMM_SELF, &intercomm, MPI_ERRCODES_IGNORE);
+    // MPI_Comm_spawn(exec_neuron, spawn_argvs, num_of_procs_nrn, MPI_INFO_NULL, 0, MPI_COMM_SELF, &intercomm, MPI_ERRCODES_IGNORE);
+    MPI_Comm_spawn(exec_neuron, neuron_argv, num_of_procs_nrn, MPI_INFO_NULL, 0, MPI_COMM_SELF, &intercomm, MPI_ERRCODES_IGNORE);
     MPI_Intercomm_merge(intercomm, 0, &nrn_comm);
     MPI_Comm_size(nrn_comm, &spawn_size);
     MPI_Comm_rank(nrn_comm, &spawn_myid);
@@ -388,7 +384,9 @@ int main(int argc, char **argv){
     MPI_Barrier(MPI_COMM_WORLD);
 
     /* free the allocated memory */
-    free(exec_prog);
+    free(exec_neuron);
+    free(neuron_option);
+    free(exec_hoc);
     free(pop_sendbuf_nrn_weight);
     free(pop_rcvbuf_nrn_weight);
     free(arFunvals_child_buf1);

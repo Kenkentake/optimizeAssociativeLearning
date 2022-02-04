@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # Make directory to save data file
-# Time=`date '+%m%d%H%M%S'`
-# Time="0908000000"
+Time=`date '+%m%d%H%M%S'`
 
-Time="0123456789"
+# Time="9876543210"
 RESULT_DIR="./al_result/"
 VOLTAGE_DIR="${RESULT_DIR}${Time}/voltage"
 SPIKE_DIR="${RESULT_DIR}${Time}/spike"
@@ -23,13 +22,15 @@ MU=1
 NUM_OF_CHILD_PROCS=2
 MAXEVAL=1
 NUM_OF_GRANDCHILD_PROCS=20
-EXEC_PROG="/vol0004/hp200177/u00690/neuron_kplus/specials/sparc64/special"
+EXEC_NEURON="/vol0004/hp200177/u00690/neuron_kplus/specials/sparc64/special"
+NEURON_OPTION="{SAVEDIR=${Time}}"
+EXEC_HOC="../al_networkSimulation.hoc"
 DIM_CON_MAT=6
 CON_MAT_FILENAME="../cmaes_input/conMat_6.txt";
 PARAMETER_FILENAME="../cmaes_input/params_pn.txt";
 
 # minimal estimate_main
-EXEC_FILE="./estimate_main ${NUM_OF_POP} ${MU} ${NUM_OF_CHILD_PROCS} ${MAXEVAL} ${NUM_OF_GRANDCHILD_PROCS} ${EXEC_PROG} ${DIM_CON_MAT} ${CON_MAT_FILENAME} ${PARAMETER_FILENAME} ${CMAES_DIR}"
+EXEC_FILE="./estimate_main ${NUM_OF_POP} ${MU} ${NUM_OF_CHILD_PROCS} ${MAXEVAL} ${NUM_OF_GRANDCHILD_PROCS} ${EXEC_NEURON} ${NEURON_OPTION} ${EXEC_HOC} ${DIM_CON_MAT} ${CON_MAT_FILENAME} ${PARAMETER_FILENAME} ${CMAES_DIR}"
 
 # execute job
 mpiexec -np 1  ${EXEC_FILE} 2>&1 | tee stdout_seikai100.log

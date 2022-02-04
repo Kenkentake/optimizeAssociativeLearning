@@ -5,13 +5,15 @@ int main(int argc, char **argv){
     int main_myid, main_size;
     char command[] = "./make_neuro_spawn";
     char **spawn_argv;
-    int spawn_argv_size=7;
+    int spawn_argv_size=9;
     int num_of_pop_per_child;
     int spawn_numprocs = 7;/*the number of NEURON circuits*/
     MPI_Comm spawn_comm, intercomm, parentcomm;
     int spawn_size, spawn_myid;
     int num_of_nrn_procs=4;
-    char *exec_prog=NULL;
+    char *exec_neuron=NULL;
+    char *neuron_option=NULL;
+    char *exec_hoc=NULL;
     int dim_con_mat;
     char *connection_data=NULL;
 
@@ -63,22 +65,39 @@ int main(int argc, char **argv){
       spawn_argv[i] = (char *)malloc(sizeof(char) * 256);
     }
     spawn_argv[spawn_argv_size-1] = NULL;
-    exec_prog = (char *)malloc(sizeof(char) * 256);
-    if(exec_prog==NULL){
-      printf("memory allocation error occurs @{exec_prog}\n");
+    exec_neuron = (char *)malloc(sizeof(char) * 256);
+    if(exec_neuron==NULL){
+      printf("memory allocation error occurs @{exec_neuron}\n");
+    }
+    neuron_option = (char *)malloc(sizeof(char) * 256);
+    if(neuron_option==NULL){
+      printf("memory allocation error occurs @{neuron_option}\n");
+    }
+    exec_hoc = (char *)malloc(sizeof(char) * 256);
+    if(exec_hoc==NULL){
+      printf("memory allocation error occurs @{exec_hoc}\n");
     }
     connection_data = (char *)malloc(sizeof(char) * 256);
     if(connection_data==NULL){
       printf("memory allocation error occurs @{connection_data}\n");
     }
 
-    /* for test input*/
-    if(argc > 7){
-      dim_con_mat = atoi(argv[7]);
-      sprintf(connection_data, "%s", argv[8]);
-      sprintf(range_filename, "%s", argv[9]);
-      sprintf(results_dir, "%s", argv[10]);
-    }
+    // load argument
+    t.lambda=lambda = atoi(argv[1]);
+    t.mu = mu = atoi(argv[2]);
+    t.spawn_numprocs = spawn_numprocs = atoi(argv[3]);
+    t.maxevals = maxevals = atoi(argv[4]);
+    maxevals *= lambda;
+    t.maxevals *= lambda;
+    t.num_of_nrn_procs = num_of_nrn_procs = atoi(argv[5]);
+    sprintf(exec_neuron, "%s", argv[6]);
+    sprintf(neuron_option, "%s", argv[7]);
+    sprintf(exec_hoc, "%s", argv[8]);
+    dim_con_mat = atoi(argv[9]);
+    sprintf(connection_data, "%s", argv[10]);
+    sprintf(range_filename, "%s", argv[11]);
+    sprintf(results_dir, "%s", argv[12]);
+
     loadRangeFile(range_filename, xmin_tmp, xmax_tmp, &t.N);
     N = t.N;
 
@@ -94,19 +113,6 @@ int main(int argc, char **argv){
     }
     printf("dim_con_mat = %d\n", dim_con_mat);
     
-    if(argc < 2){
-      lambda = 4+floor(3*log((double)N)); //      population size, e.g., 4+floor(3*log(N));
-      mu = (int)(lambda / 2); // number of parents, e.g., floor(lambda /2);
-    }else{
-      t.lambda=lambda = atoi(argv[1]);
-      t.mu = mu = atoi(argv[2]);
-      t.spawn_numprocs = spawn_numprocs = atoi(argv[3]);
-      t.maxevals = maxevals = atoi(argv[4]);
-      maxevals *= lambda;
-      t.maxevals *= lambda;
-      t.num_of_nrn_procs = num_of_nrn_procs = atoi(argv[5]);
-      sprintf(exec_prog, "%s", argv[6]);
-    }
     
     t.num_of_pop_per_child = num_of_pop_per_child = lambda / spawn_numprocs;
     t.nvectors = nvectors = lambda;
@@ -119,9 +125,11 @@ int main(int argc, char **argv){
     sprintf(spawn_argv[0], "%d", num_of_pop_per_child);
     sprintf(spawn_argv[1], "%d", N);
     sprintf(spawn_argv[2], "%d", num_of_nrn_procs);
-    sprintf(spawn_argv[3], "%s", exec_prog);
-    sprintf(spawn_argv[4], "%d", dim_con_mat);
-    sprintf(spawn_argv[5], "%s", connection_data);
+    sprintf(spawn_argv[3], "%s", exec_neuron);
+    sprintf(spawn_argv[4], "%s", neuron_option);
+    sprintf(spawn_argv[5], "%s", exec_hoc);
+    sprintf(spawn_argv[6], "%d", dim_con_mat);
+    sprintf(spawn_argv[7], "%s", connection_data);
 
     xmin_vec = (double *)malloc(sizeof(double) * N);
     xmax_vec = (double *)malloc(sizeof(double) * N);
@@ -146,10 +154,12 @@ int main(int argc, char **argv){
    printf("spawn_argv[0](num_of_pop_per_child) = %s\n", spawn_argv[0]);
    printf("spawn_argv[1](N = num of parameters = dimension) = %s\n", spawn_argv[1]);
    printf("spawn_argv[2](num_of_nrn_procs) = %s\n", spawn_argv[2]);
-   printf("spawn_argv[3](exec_prog) = %s\n", spawn_argv[3]);
-   printf("spawn_argv[4](dim_con_mat) = %s\n", spawn_argv[4]);
-   printf("spawn_argv[5](connection_data) = %s\n", spawn_argv[5]);
-   printf("spawn_argv[6] = %s\n", spawn_argv[6]);
+   printf("spawn_argv[3](exec_neuron) = %s\n", spawn_argv[3]);
+   printf("spawn_argv[4](neuron_option) = %s\n", spawn_argv[4]);
+   printf("spawn_argv[5](exec_hoc) = %s\n", spawn_argv[5]);
+   printf("spawn_argv[6](dim_con_mat) = %s\n", spawn_argv[6]);
+   printf("spawn_argv[7](connection_data) = %s\n", spawn_argv[7]);
+   printf("spawn_argv[8] = %s\n", spawn_argv[8]);
    printf("#################################################################\n");
 
     // create config file
@@ -188,7 +198,9 @@ int main(int argc, char **argv){
 
     free(xmax_vec); xmax_vec = NULL;
     free(xmin_vec); xmin_vec = NULL;
-    free(exec_prog); exec_prog = NULL;
+    free(exec_neuron); exec_neuron = NULL;
+    free(neuron_option); neuron_option = NULL;
+    free(exec_hoc); exec_hoc = NULL;
     free(connection_data); connection_data=NULL;
     free_hyperparam_arrays(&t);
 
