@@ -40,8 +40,6 @@ int main(int argc, char **argv){
 
     int sample_symmetry = 0; // use 1 to make the algorithm 2 times faster (in CPU time) and perform better (in terms of number of evaluations)
 
-    double output[2];
-
     char range_filename[256] = "../data/params_onlyWeight.txt";
     char results_dir[256];
     char config_path[256];
