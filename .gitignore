@@ -60,6 +60,16 @@ dkms.conf
 /input/synlist/rtoasynlist/*
 /input/synlist/rtoupsynlist/*
 
-
 # result
 /one_result/*
+
+# src_min
+/src_min/estimate_main
+/src_min/make_neuro_spawn
+/src_min/*.stats
+/src_min/*.out
+/src_min/*.err
+/src_min/*.o
+/src_min/[0-9]*
+/src_min/al_result/*
+/src_min/one_result/*

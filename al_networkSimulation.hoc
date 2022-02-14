@@ -119,14 +119,14 @@ proc mkRNSerialStim() { local minid, maxid, glomid localobj rnd
     maxid = 20 * (glomid + 1)
     for (i=0; i < rncells.count(); i+=1) {
         rngid = i * pc.nhost + pc.id
-	if ( rngid >= minid && rngid < maxid ) { // stimulated glom (rns)
-	     // rncells.object[i].setIClamp(STOPTIME, dt, strong_spt)
-	     rncells.object[i].setIClamp(STOPTIME-200, dt, strong_spt, 20)
-	} else {                       // not stimulated glom (rns)
-	     // rncells.object[i].setIClamp(STOPTIME, dt, zero_spt)	    
-	     rncells.object[i].setIClamp(STOPTIME-200, dt, zero_spt, 20)	    
-	}
-     }
+	    if ( rngid >= minid && rngid < maxid ) { // stimulated glom (rns)
+	         // rncells.object[i].setIClamp(STOPTIME, dt, strong_spt)
+	         rncells.object[i].setIClamp(STOPTIME-200, dt, strong_spt, 20)
+	    } else {                       // not stimulated glom (rns)
+	         // rncells.object[i].setIClamp(STOPTIME, dt, zero_spt)	    
+	         rncells.object[i].setIClamp(STOPTIME-200, dt, zero_spt, 20)	    
+	    }
+    }
 }
 mkRNSerialStim()
 printf("mkRNSerialStim() done!\n")
