@@ -6,10 +6,17 @@
 - Python2系
 ## 2. 実行準備
 ### 2.1 レポジトリのclone
+- optimizeAssociativeLearningをclone
 ```
 $ git clone git@github.com:Kenkentake/optimizeAssociativeLearning.git
 ```
-### 2.2 設定ファイルの配置
+- NeuronK+をclone
+```
+$ git clone git@github.com:Kenkentake/neuron_kplus.git
+```
+### 2.2 NeuronK+で実行ファイル（special）を作成
+[このREADME](https://github.com/Kenkentake/neuron_kplus/blob/master/README.md)の「for K computer」を参考にして7.2のversionでspecialを作成
+### 2.3設定ファイルの配置
 - swcファイル
   - input/swc/alswcs/*.swc
   - input/swc/rnswcs/*.swc
@@ -18,7 +25,7 @@ $ git clone git@github.com:Kenkentake/optimizeAssociativeLearning.git
   - input/synlist/atorsynlist/*.txt
   - input/synlist/rtoasynlist/*.txt
   - input/synlist/rtoupsynlist/*.txt
-### 2.3 パスの変更
+### 2.4 パスの変更
 パスの修正が必要なファイル
 - src_min/job_estimate_main.sh
 - src_min/run_interact_job.sh
