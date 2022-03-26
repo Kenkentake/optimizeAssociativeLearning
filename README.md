@@ -78,7 +78,8 @@ $ ./run_interact_job.sh
 - voltage/{voltage名}.txt
   - 膜電位が記録（時間[t]、膜電位[mV]）
 ### 5.2 結果ファイルの可視化
-ganglionなどのpython2系が実行可能な環境で以下を実行
+発火率を算出する。ganglionなどのpython2系が実行可能な環境で以下を実行。
+標準出力として、30[ms]~691[ms]までの発火率[/s]が15[ms]間隔で表示。
 ```
 $ cp src_min/{%m%d%H%M%S}/spikeuPN_mALT_ACh_DC3_57241Spike.dat visualizer
 $ cd visualizer
