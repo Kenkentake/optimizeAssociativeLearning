@@ -82,5 +82,5 @@ ganglionなどのpython2系が実行可能な環境で以下を実行
 ```
 $ cp src_min/{%m%d%H%M%S}/spikeuPN_mALT_ACh_DC3_57241Spike.dat visualizer
 $ cd visualizer
-$ python2 vis_spike_rate.py {spikeファイル。例）uPN_mALT_ACh_DC3_57241Spike.dat}
+$ python2 vis_spike_rate.py uPN_mALT_ACh_DC3_57241Spike.dat
 ```
