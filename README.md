@@ -3,6 +3,7 @@
 - 富岳
 - NEURON 7.2 with MPI
 - MPI environment
+- Python2系
 ## 2. 実行準備
 ### 2.1 レポジトリのclone
 ```
@@ -64,6 +65,7 @@ $ ./run_interact_job.sh
 （DIM_CON_MATは使用しないため無視してください）
 
 ## 5 結果
+### 5.1 結果ファイル
 `src_min/al_result/{%m%d%H%M%S}`に結果フォルダが生成（jobfileでRESULT_DIR="./al_result/"と指定いる場合）
 - cmaes/config.dat
   - 実行条件が記録
@@ -72,6 +74,13 @@ $ ./run_interact_job.sh
 - cmaes/output_cmaes.dat
   - 評価値が記録（イテレーション数、イテレーション数*遺伝子数、過去の世代を含んだベスト適応度、その世代でのベスト適応度、その世代での適応度の平均）
 - spike/{spike名}Spike.dat
-　　　　- 発火タイミングが記録
+  - 発火タイミングが記録
 - voltage/{voltage名}.txt
-　　 - 膜電位が記録（時間[t]、膜電位[mV]）
+  - 膜電位が記録（時間[t]、膜電位[mV]）
+### 5.2 結果ファイルの可視化
+ganglionなどのpython2系が実行可能な環境で以下を実行
+```
+$ cp src_min/{%m%d%H%M%S}/spikeuPN_mALT_ACh_DC3_57241Spike.dat visualizer
+$ cd visualizer
+$ python2 vis_spike_rate.py {spikeファイル。例）uPN_mALT_ACh_DC3_57241Spike.dat}
+```
